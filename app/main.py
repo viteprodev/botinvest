@@ -44,9 +44,35 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
+import os
+import threading
+from http.server import HTTPServer, BaseHTTPRequestHandler
+
+# Dummy Server for Render Web Service
+class HealthCheckHandler(BaseHTTPRequestHandler):
+    def do_GET(self):
+        self.send_response(200)
+        self.send_header('Content-type', 'text/plain')
+        self.end_headers()
+        self.wfile.write(b"OK")
+    
+    # Suppress logs
+    def log_message(self, format, *args):
+        pass
+
+def start_dummy_server():
+    port = int(os.environ.get("PORT", 8080))
+    server = HTTPServer(('0.0.0.0', port), HealthCheckHandler)
+    logger.info(f"Dummy server listening on port {port}")
+    server.serve_forever()
+
 def main():
     # Initialize Database
     init_db()
+    
+    # Start Dummy Server in Background Thread
+    server_thread = threading.Thread(target=start_dummy_server, daemon=True)
+    server_thread.start()
     
     # Build Application
     application = ApplicationBuilder().token(BOT_TOKEN).build()

@@ -5,18 +5,15 @@ databases:
     plan: free
 
 services:
-  - type: worker
+  - type: web # Changed from worker to web to allow Free Tier without CC
     name: telegram-investment-bot
     env: python
-    # plan: free # Worker free tier often auto-selected or requires credit card validation. Leaving implicit or explicit if supported.
-    # Note: Explicit "plan: free" for workers might cause validation errors on some accounts if not eligible.
-    # Safe bet for blueprint: let user select or default. BUT user asked for free.
-    # Let's add it for database which is critical. For worker, it's usually standard/starter/free. 
-    # Render Blueprints: "plan" property.
     plan: free 
     buildCommand: pip install -r requirements.txt
     startCommand: python -m app.main
     envVars:
+      - key: PORT
+        value: 10000 # Default Render port
       - key: PYTHON_VERSION
         value: 3.10.0
       - key: DATABASE_URL
