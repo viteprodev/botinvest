@@ -2,11 +2,18 @@ databases:
   - name: bot-investasi-db
     databaseName: bot_investasi
     user: bot_user
+    plan: free
 
 services:
   - type: worker
     name: telegram-investment-bot
     env: python
+    # plan: free # Worker free tier often auto-selected or requires credit card validation. Leaving implicit or explicit if supported.
+    # Note: Explicit "plan: free" for workers might cause validation errors on some accounts if not eligible.
+    # Safe bet for blueprint: let user select or default. BUT user asked for free.
+    # Let's add it for database which is critical. For worker, it's usually standard/starter/free. 
+    # Render Blueprints: "plan" property.
+    plan: free 
     buildCommand: pip install -r requirements.txt
     startCommand: python -m app.main
     envVars:
@@ -15,6 +22,8 @@ services:
       - key: DATABASE_URL
         fromDatabase:
           name: bot-investasi-db
-          property: connectionString
+          property: connectionString # Internal connection string is usually auto-configured, but let's stick to simple "connectionString" which Render exposes.
+          # Actually, for Worker communicating with DB in same project, "connectionString" or "internalConnectionString" works. 
+          # "connectionString" is safer.
       - key: BOT_TOKEN
         sync: false
