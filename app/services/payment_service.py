@@ -48,3 +48,6 @@ class PaymentService:
             raise ValueError("Transaction ID already processed")
             
         return self.tx_repo.update_status(tx_id, TransactionStatus.REJECTED)
+
+    def get_pending_transactions(self):
+        return self.tx_repo.get_pending()

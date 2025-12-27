@@ -34,6 +34,24 @@ async def process_withdraw(update: Update, context: ContextTypes.DEFAULT_TYPE):
             "Admin akan memprosesnya.",
             reply_markup=InlineKeyboardMarkup(keyboard)
         )
+        
+        # Notify Admins with actions
+        from app.services.notification_service import notify_admins
+        
+        admin_keyboard = [
+            [InlineKeyboardButton("✅ Approve", callback_data=f"admin_approve_{tx.id}"),
+             InlineKeyboardButton("🚫 Reject", callback_data=f"admin_reject_{tx.id}")]
+        ]
+        
+        msg_admin = (
+            f"💸 **Withdrawal Request**\n"
+            f"User: {update.effective_user.mention_html()}\n"
+            f"ID: `{user_id}`\n"
+            f"Amt: **Rp {amount:,.0f}**\n"
+            f"Tx ID: #{tx.id}"
+        )
+        await notify_admins(context, msg_admin, reply_markup=InlineKeyboardMarkup(admin_keyboard))
+
     except ValueError as e:
         await update.message.reply_text(f"❌ Gagal: {str(e)}", reply_markup=InlineKeyboardMarkup(keyboard))
         

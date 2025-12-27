@@ -20,21 +20,8 @@ from app.models.setting import Setting
 
 # ...
 
-async def main():
-    # ...
-    # Add handlers
-    
-    # New Features
-    for handler in event_handlers:
-        application.add_handler(handler)
-    application.add_handler(history_handler_obj)
-    for handler in info_handlers:
-        application.add_handler(handler)
-        
-    application.add_handler(topup_handler_obj)
-    application.add_handler(withdraw_handler_obj)
-    application.add_handler(calculator_handler_obj)
-    application.add_handler(wallet_handler_obj)
+# Handlers are imported above
+
 
 # Logging config
 logging.basicConfig(
@@ -83,17 +70,27 @@ def main():
     application.add_handler(CommandHandler("saldo", balance_command))
     
     # Admin
+    from app.handlers.admin import admin_dashboard
+    application.add_handler(CommandHandler("admin", admin_dashboard))
     application.add_handler(CommandHandler("approve", approve_topup))
     application.add_handler(CommandHandler("reject", reject_topup))
     application.add_handler(CommandHandler("set_mandiri", set_mandiri))
     application.add_handler(CallbackQueryHandler(approve_topup, pattern="^admin_approve_"))
     application.add_handler(CallbackQueryHandler(reject_topup, pattern="^admin_reject_"))
+    application.add_handler(CallbackQueryHandler(admin_dashboard, pattern="^admin_refresh$"))
     
     # Flows
     application.add_handler(topup_handler_obj)
     application.add_handler(withdraw_handler_obj)
     application.add_handler(calculator_handler_obj)
     application.add_handler(wallet_handler_obj)
+
+    # New Features - Registered
+    for handler in event_handlers:
+        application.add_handler(handler)
+    application.add_handler(history_handler_obj)
+    for handler in info_handlers:
+        application.add_handler(handler)
     
     # Callbacks (Menu)
     application.add_handler(CallbackQueryHandler(check_balance_callback, pattern="^check_balance$"))
@@ -103,6 +100,12 @@ def main():
     
     # Render Background Worker requires a long-running process.
     # checking update types
+    try:
+        loop = asyncio.get_event_loop()
+    except RuntimeError:
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        
     application.run_polling(allowed_updates=Update.ALL_TYPES)
 
 if __name__ == "__main__":

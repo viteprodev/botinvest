@@ -12,7 +12,7 @@ class UserService:
             user = self.user_repo.create(telegram_id, username, full_name)
         return user
 
-    async def get_balance(self, telegram_id: int) -> float:
+    def get_balance(self, telegram_id: int) -> float:
         user = self.user_repo.get_by_telegram_id(telegram_id)
         if not user:
             return 0.0

@@ -68,7 +68,13 @@ async def approve_topup(update: Update, context: ContextTypes.DEFAULT_TYPE):
             
         msg = f"✅ Transaksi #{tx_id} APPROVED oleh {update.effective_user.first_name}."
         if query:
-            await query.edit_message_caption(caption=msg + "\n\n" + query.message.caption)
+            if "admin_approve_" in query.data:
+                await query.answer(msg, show_alert=True)
+                # If we have a pattern for dashboard refresh
+                await admin_dashboard(update, context) # Back to dashboard
+                pass
+            else:
+                 await query.edit_message_caption(caption=msg + "\n\n" + query.message.caption)
         else:
             await update.message.reply_text(msg)
             
@@ -116,7 +122,13 @@ async def reject_topup(update: Update, context: ContextTypes.DEFAULT_TYPE):
         msg = f"🚫 Transaksi #{tx_id} REJECTED oleh {update.effective_user.first_name}."
         
         if query:
-            await query.edit_message_caption(caption=msg + "\n\n" + query.message.caption)
+            # Check if this was from dashboard
+            if "admin_reject_" in query.data:
+                await query.answer(msg, show_alert=True)
+                # Refresh dashboard if possible or just send message
+                await admin_dashboard(update, context) # Back to dashboard
+            else:
+                await query.edit_message_caption(caption=msg + "\n\n" + query.message.caption)
         else:
             await update.message.reply_text(msg)
             
@@ -126,3 +138,31 @@ async def reject_topup(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await query.answer(msg, show_alert=True)
         else:
             await update.message.reply_text(msg)
+
+async def admin_dashboard(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user_id = update.effective_user.id
+    if user_id not in ADMIN_IDS:
+        return # Silent ignore
+
+    db = next(get_db())
+    service = PaymentService(db)
+    pending_txs = service.get_pending_transactions()
+    
+    # Simple Dashboard
+    if not pending_txs:
+        text = "🛡 *Admin Dashboard*\n\n✅ Tidak ada transaksi pending saat ini."
+    else:
+        text = f"🛡 *Admin Dashboard*\n\n⚠️ Ada {len(pending_txs)} transaksi pending:\n"
+        for tx in pending_txs:
+            text += f"• #{tx.id} - {tx.type.value} Rp {tx.amount:,.0f} (User: {tx.user_id})\n"
+            text += f"  /approve_{tx.id} | /reject_{tx.id}\n"
+
+    from telegram import InlineKeyboardButton, InlineKeyboardMarkup
+    keyboard = [[InlineKeyboardButton("🔄 Refresh", callback_data="admin_refresh")]]
+    reply_markup = InlineKeyboardMarkup(keyboard)
+
+    if update.callback_query:
+        await update.callback_query.edit_message_text(text, parse_mode="Markdown", reply_markup=reply_markup)
+    else:
+        await update.message.reply_text(text, parse_mode="Markdown", reply_markup=reply_markup)
+
