@@ -11,6 +11,7 @@ class User(Base):
     full_name = Column(String, nullable=True)
     balance = Column(Float, default=0.0)
     bonus_claimed = Column(Boolean, default=False)
+    is_vip = Column(Boolean, default=False)
     joined_at = Column(DateTime(timezone=True), server_default=func.now())
 
     def __repr__(self):

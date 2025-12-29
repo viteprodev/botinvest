@@ -4,6 +4,10 @@ from app.database import get_db
 from app.services.payment_service import PaymentService
 from app.config import ADMIN_IDS
 from datetime import datetime
+import warnings
+from telegram.warnings import PTBUserWarning
+
+warnings.filterwarnings("ignore", category=PTBUserWarning, message="If 'per_message=False'")
 
 
 SELECT_AMOUNT, MANUAL_AMOUNT, SELECT_BANK, UPLOAD_PROOF = range(4)

@@ -1,0 +1,33 @@
+version: '3.8'
+
+services:
+  bot:
+    build: .
+    # Override the command to use uvicorn directly for production
+    # and bind to 0.0.0.0 so it's accessible outside the container
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000
+    restart: always
+    ports:
+      - "8000:8000"
+    env_file:
+      - .env
+    environment:
+      # If using the db service defined below, update the DATABASE_URL
+      # DATABASE_URL: postgresql://botuser:botpassword@db:5432/botdb
+      - PYTHONUNBUFFERED=1
+    # depends_on:
+    #   - db
+
+    # SERVICE DATABASE (Opsional: Hanya jika tidak pakai Supabase/External DB)
+    # db:
+    #   image: postgres:15-alpine
+    #   restart: always
+    #   environment:
+    #     POSTGRES_USER: botuser
+    #     POSTGRES_PASSWORD: botpassword
+    #     POSTGRES_DB: botdb
+    #   volumes:
+    #     - postgres_data:/var/lib/postgresql/data
+
+volumes:
+  postgres_data:

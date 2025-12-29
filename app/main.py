@@ -1,27 +1,13 @@
 import logging
 import sys
 import asyncio
-from telegram import Update
-from telegram.ext import ApplicationBuilder, CommandHandler, CallbackQueryHandler
+from contextlib import asynccontextmanager
 
-from app.config import BOT_TOKEN
+from fastapi import FastAPI
+from telegram.ext import Application
+
 from app.database import init_db
-from app.handlers.start import start, help_command, check_balance_callback, balance_command
-from app.handlers.admin import approve_topup, reject_topup, set_mandiri
-from app.handlers.topup import topup_handler_obj
-from app.handlers.withdraw import withdraw_handler_obj
-from app.handlers.calculator import calculator_handler_obj
-from app.handlers.wallet import wallet_handler_obj
-from app.handlers.event import event_handlers
-from app.handlers.history import history_handler_obj
-from app.handlers.info import info_handlers
-# Ensure models are loaded
-from app.models.setting import Setting
-
-# ...
-
-# Handlers are imported above
-
+from app.bot import create_bot_application
 
 # Logging config
 logging.basicConfig(
@@ -31,82 +17,58 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-import os
-import threading
-from http.server import HTTPServer, BaseHTTPRequestHandler
+# Global variable to hold the bot application
+bot_app: Application = None
 
-# Dummy Server for Render Web Service
-class HealthCheckHandler(BaseHTTPRequestHandler):
-    def do_GET(self):
-        self.send_response(200)
-        self.send_header('Content-type', 'text/plain')
-        self.end_headers()
-        self.wfile.write(b"OK")
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # Startup
+    logger.info("Starting up FastAPI application...")
     
-    # Suppress logs
-    def log_message(self, format, *args):
-        pass
-
-def start_dummy_server():
-    port = int(os.environ.get("PORT", 8080))
-    server = HTTPServer(('0.0.0.0', port), HealthCheckHandler)
-    logger.info(f"Dummy server listening on port {port}")
-    server.serve_forever()
-
-def main():
     # Initialize Database
     init_db()
     
-    # Start Dummy Server in Background Thread
-    server_thread = threading.Thread(target=start_dummy_server, daemon=True)
-    server_thread.start()
+    # Create Bot Application
+    global bot_app
+    bot_app = create_bot_application()
     
-    # Build Application
-    application = ApplicationBuilder().token(BOT_TOKEN).build()
+    # Initialize and Start Bot
+    await bot_app.initialize()
+    await bot_app.start()
     
-    # Handlers
-    application.add_handler(CommandHandler("start", start))
-    application.add_handler(CommandHandler("help", help_command))
-    application.add_handler(CommandHandler("saldo", balance_command))
+    # Start Polling (non-blocking in this context, but we need to manage the updater)
+    # Since run_polling blocks, we construct the updater manually or start it in a way that doesn't block FastAPI.
+    # But wait, run_polling is blocking. We should use start_polling() which is async but we need to keep it running.
+    # Actually, Application.start() starts the bot. Application.updater.start_polling() starts the receiving updates.
     
-    # Admin
-    from app.handlers.admin import admin_dashboard
-    application.add_handler(CommandHandler("admin", admin_dashboard))
-    application.add_handler(CommandHandler("approve", approve_topup))
-    application.add_handler(CommandHandler("reject", reject_topup))
-    application.add_handler(CommandHandler("set_mandiri", set_mandiri))
-    application.add_handler(CallbackQueryHandler(approve_topup, pattern="^admin_approve_"))
-    application.add_handler(CallbackQueryHandler(reject_topup, pattern="^admin_reject_"))
-    application.add_handler(CallbackQueryHandler(admin_dashboard, pattern="^admin_refresh$"))
-    
-    # Flows
-    application.add_handler(topup_handler_obj)
-    application.add_handler(withdraw_handler_obj)
-    application.add_handler(calculator_handler_obj)
-    application.add_handler(wallet_handler_obj)
+    if bot_app.updater is None:
+        # Re-initialize updater if needed? 
+        # ApplicationBuilder().build() creates the updater if we don't provide one? Yes.
+        pass
 
-    # New Features - Registered
-    for handler in event_handlers:
-        application.add_handler(handler)
-    application.add_handler(history_handler_obj)
-    for handler in info_handlers:
-        application.add_handler(handler)
+    logger.info("Starting Telegram Bot Polling...")
+    await bot_app.updater.start_polling()
+
+    yield
     
-    # Callbacks (Menu)
-    application.add_handler(CallbackQueryHandler(check_balance_callback, pattern="^check_balance$"))
-    application.add_handler(CallbackQueryHandler(start, pattern="^back_to_menu$"))
-    
-    logger.info("Bot is running...")
-    
-    # Render Background Worker requires a long-running process.
-    # checking update types
-    try:
-        loop = asyncio.get_event_loop()
-    except RuntimeError:
-        loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(loop)
-        
-    application.run_polling(allowed_updates=Update.ALL_TYPES)
+    # Shutdown
+    logger.info("Shutting down FastAPI application...")
+    if bot_app.updater.running:
+        await bot_app.updater.stop()
+    if bot_app.running:
+        await bot_app.stop()
+    await bot_app.shutdown()
+
+app = FastAPI(lifespan=lifespan)
+
+@app.get("/")
+def read_root():
+    return {"status": "ok", "message": "Bot is running"}
+
+@app.get("/health")
+def health_check():
+    return {"status": "ok"}
 
 if __name__ == "__main__":
-    main()
+    import uvicorn
+    uvicorn.run("app.main:app", host="0.0.0.0", port=8000, reload=True)

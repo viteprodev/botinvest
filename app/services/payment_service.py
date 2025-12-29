@@ -1,12 +1,14 @@
 from sqlalchemy.orm import Session
 from app.repositories.transaction_repository import TransactionRepository
 from app.repositories.user_repository import UserRepository
-from app.models.transaction import TransactionType, TransactionStatus
+from app.models.transaction import Transaction, TransactionType, TransactionStatus
 
 class PaymentService:
     def __init__(self, db: Session):
         self.tx_repo = TransactionRepository(db)
         self.user_repo = UserRepository(db)
+
+
 
     def create_topup(self, telegram_id: int, amount: float, proof_url: str):
         user = self.user_repo.get_by_telegram_id(telegram_id)
@@ -21,6 +23,14 @@ class PaymentService:
         if user.balance < amount:
             raise ValueError("Saldo tidak mencukupi")
         return self.tx_repo.create(user.id, TransactionType.WITHDRAW, amount)
+
+    def count_approved_topups(self, user_id: int) -> int:
+        return self.tx_repo.db.query(Transaction).filter(
+            Transaction.user_id == user_id,
+            Transaction.type == TransactionType.TOPUP,
+            Transaction.status == TransactionStatus.APPROVED
+        ).count()
+
 
     def approve_transaction(self, tx_id: int):
         tx = self.tx_repo.get_by_id(tx_id)

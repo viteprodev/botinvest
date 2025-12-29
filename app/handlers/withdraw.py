@@ -2,29 +2,80 @@ from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ContextTypes, ConversationHandler, CallbackQueryHandler, MessageHandler, filters, CommandHandler
 from app.database import get_db
 from app.services.payment_service import PaymentService
+import logging
+import warnings
+from telegram.warnings import PTBUserWarning
+
+warnings.filterwarnings("ignore", category=PTBUserWarning, message="If 'per_message=False'")
+
+logger = logging.getLogger(__name__)
 
 INPUT_AMOUNT = range(1)
 
 async def start_withdraw_flow(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    logger.info("Starting withdrawal flow")
     query = update.callback_query
     await query.answer()
     
     await query.message.reply_text("Silakan ketik nominal yang ingin ditarik (Contoh: 50000):")
+    logger.info("Returning INPUT_AMOUNT state")
     return INPUT_AMOUNT
 
 async def process_withdraw(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    logger.info(f"Processing withdraw input: {update.message.text}")
     text = update.message.text
     if not text.isdigit():
+        logger.warning(f"Invalid input: {text}")
         await update.message.reply_text("Mohon masukkan angka saja.")
         return INPUT_AMOUNT
         
-    amount = float(obj=text)
+    amount = float(text)
     user_id = update.effective_user.id
+    logger.info(f"User {user_id} requesting withdrawal of {amount}")
     
-    db = next(get_db())
-    service = PaymentService(db)
+    try:
+        db = next(get_db())
+        service = PaymentService(db)
+        user_repo = service.user_repo # Re-use info
+    except Exception as e:
+        logger.error(f"Error initializing DB or Service: {e}")
+        await update.message.reply_text("Terjadi kesalahan sistem.")
+        return ConversationHandler.END
     
     keyboard = [[InlineKeyboardButton("🔙 Kembali ke Menu", callback_data="back_to_menu")]]
+
+    # 1. Validation: Minimum Amount
+    if amount < 1000000:
+        await update.message.reply_text(
+            "⚠️ **Minimal Penarikan**\n"
+            "Minimal penarikan dana adalah **Rp 1.000.000**.",
+            parse_mode="Markdown",
+            reply_markup=InlineKeyboardMarkup(keyboard)
+        )
+        return ConversationHandler.END
+
+    # 2. Validation: VIP Only
+    user = user_repo.get_by_telegram_id(user_id)
+    if not user.is_vip:
+        await update.message.reply_text(
+            "🔒 **Akses Dibatasi**\n"
+            "Penarikan dana hanya tersedia untuk **Member VIP**.",
+            parse_mode="Markdown",
+            reply_markup=InlineKeyboardMarkup(keyboard)
+        )
+        return ConversationHandler.END
+
+    # 3. Validation: 3x Approved Topup
+    topup_count = service.count_approved_topups(user.id)
+    if topup_count < 3:
+        await update.message.reply_text(
+            "⚠️ **Syarat Penarikan**\n"
+            f"Anda baru melakukan {topup_count}x Topup.\n"
+            "Syarat penarikan adalah minimal **3x Topup** yang disetujui.",
+            parse_mode="Markdown",
+            reply_markup=InlineKeyboardMarkup(keyboard)
+        )
+        return ConversationHandler.END
     
     try:
         tx = service.request_withdraw(user_id, amount)

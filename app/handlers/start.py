@@ -14,11 +14,13 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         
     db = next(get_db())
     service = UserService(db)
+     
+    db_user = service.register_user(user.id, user.username, user.full_name)
     
-    service.register_user(user.id, user.username, user.full_name)
+    vip_badge = " 👑 **VIP MEMBER**" if db_user.is_vip else ""
     
     message = (
-        f"Halo {user.first_name}! Selamat datang di Bot Investasi.\n"
+        f"Halo {user.first_name}! Selamat datang di Bot Investasi.{vip_badge}\n"
         "Gunakan menu di bawah ini untuk memulai."
     )
     
