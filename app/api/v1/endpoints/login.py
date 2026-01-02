@@ -12,14 +12,15 @@ class LoginRequest(BaseModel):
     username: str
     password: str
 
+from app.models.user import User
+
 @router.post("/access-token")
 def login_access_token(
     login_in: LoginRequest,
     db: Session = Depends(deps.get_db)
 ):
-    repo = UserRepository(db)
     # Find user by username
-    user = db.query(repo.model).filter(repo.model.username == login_in.username).first()
+    user = db.query(User).filter(User.username == login_in.username).first()
     
     if not user:
         raise HTTPException(status_code=400, detail="Incorrect username or password")
