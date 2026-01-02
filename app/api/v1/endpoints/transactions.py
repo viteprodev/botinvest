@@ -4,9 +4,7 @@ from typing import List, Optional
 from app.api import deps
 from app.schemas.transaction import TransactionCreate, TransactionResponse
 from app.services.payment_service import PaymentService
-from app.models.transaction import TransactionStatus, TransactionType
-
-router = APIRouter()
+from app.models.transaction import Transaction, TransactionStatus, TransactionType
 
 @router.get("/", response_model=List[TransactionResponse])
 def read_transactions(
@@ -17,19 +15,19 @@ def read_transactions(
     db: Session = Depends(deps.get_db)
 ):
     service = PaymentService(db)
-    query = db.query(service.tx_repo.model)
+    query = db.query(Transaction)
     
     if status:
-        query = query.filter(service.tx_repo.model.status == status)
+        query = query.filter(Transaction.status == status)
         
     if telegram_id:
         user = service.user_repo.get_by_telegram_id(telegram_id)
         if user:
-            query = query.filter(service.tx_repo.model.user_id == user.id)
+            query = query.filter(Transaction.user_id == user.id)
         else:
             return [] # User not found means no transactions
             
-    return query.order_by(service.tx_repo.model.created_at.desc()).offset(skip).limit(limit).all()
+    return query.order_by(Transaction.created_at.desc()).offset(skip).limit(limit).all()
 
 @router.post("/topup", response_model=TransactionResponse)
 def create_topup(
@@ -101,7 +99,8 @@ def reject_transaction(
     try:
         service.reject_transaction(tx_id)
         # Fetch updated tx to return
-        tx = service.tx_repo.get(tx_id)
+        tx = service.tx_repo.get_by_id(tx_id)
+
         return tx
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
