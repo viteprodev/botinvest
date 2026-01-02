@@ -4,6 +4,7 @@ from app.models.user import User
 
 class UserService:
     def __init__(self, db: Session):
+        self.db = db
         self.user_repo = UserRepository(db)
 
     def register_user(self, telegram_id: int, username: str, full_name: str) -> User:
@@ -40,5 +41,6 @@ class UserService:
             
         # Award Bonus
         user.bonus_claimed = True
+        user.balance += 500000 # Add Rp 500.000
         self.db.commit()
         return True
