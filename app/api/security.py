@@ -1,7 +1,8 @@
 from datetime import datetime, timedelta
 from typing import Optional, Any, Union
 import jwt
-from app.config import TOKEN as BOT_TOKEN # Using BOT_TOKEN as secret for now
+from app.config import BOT_TOKEN # Using BOT_TOKEN as secret for now
+
 
 # Configuration
 SECRET_KEY = BOT_TOKEN  # Ideally this should be a separate SECRET, but for Telegram Auth validation it's related. 

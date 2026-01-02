@@ -3,7 +3,8 @@ from pydantic import BaseModel
 import hashlib
 import hmac
 import time
-from app.config import TOKEN as BOT_TOKEN
+from app.config import BOT_TOKEN
+
 from app.api import security
 from app.api import deps
 from app.repositories.user_repository import UserRepository
