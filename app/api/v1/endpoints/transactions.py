@@ -6,6 +6,9 @@ from app.schemas.transaction import TransactionCreate, TransactionResponse
 from app.services.payment_service import PaymentService
 from app.models.transaction import Transaction, TransactionStatus, TransactionType
 
+router = APIRouter()
+
+
 @router.get("/", response_model=List[TransactionResponse])
 def read_transactions(
     skip: int = 0,
