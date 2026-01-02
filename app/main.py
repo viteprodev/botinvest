@@ -4,6 +4,7 @@ import asyncio
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 from telegram.ext import Application
 
 from app.database import init_db
@@ -60,6 +61,27 @@ async def lifespan(app: FastAPI):
     await bot_app.shutdown()
 
 app = FastAPI(lifespan=lifespan)
+
+# Include API Routers
+from app.api.v1.endpoints import auth, users, transactions, plans, login
+app.include_router(auth.router, prefix="/api/v1/auth", tags=["Auth"])
+app.include_router(login.router, prefix="/api/v1/login", tags=["Login"])
+app.include_router(users.router, prefix="/api/v1/users", tags=["Users"])
+app.include_router(transactions.router, prefix="/api/v1/transactions", tags=["Transactions"])
+app.include_router(plans.router, prefix="/api/v1/plans", tags=["Plans"])
+
+# CORS Configuration
+origins = [
+    "http://localhost:3000",
+]
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=origins,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 @app.get("/")
 def read_root():
