@@ -7,6 +7,8 @@ from app.services.payment_service import PaymentService
 from app.models.transaction import Transaction, TransactionStatus, TransactionType
 
 router = APIRouter()
+print("DEBUG: Loading transactions router")
+
 
 
 @router.get("/", response_model=List[TransactionResponse])
